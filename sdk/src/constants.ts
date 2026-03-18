@@ -12,4 +12,5 @@ export const DEFAULT_RPC_URLS: Record<string, string> = {
   'mainnet-beta': 'https://api.mainnet-beta.solana.com',
   devnet: 'https://api.devnet.solana.com',
   localnet: 'http://localhost:8899',
+  surfnet: 'http://localhost:8899',
 }

@@ -4,7 +4,7 @@
  * Usage:
  *   SECRET_KEY=base58EncodedKeypair npx tsx examples/client.ts
  */
-import { Mppx, solana } from '../src/client/index.js'
+import { Mppx, solana } from '../sdk/src/client/index.js'
 import { createKeyPairSignerFromBytes, getBase58Encoder } from '@solana/kit'
 
 const secretKey = process.env.SECRET_KEY

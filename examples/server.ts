@@ -5,7 +5,7 @@
  *   RECIPIENT=YourWalletPubkey npx tsx examples/server.ts
  */
 import { createServer } from 'node:http'
-import { Mppx, solana } from '../src/server/index.js'
+import { Mppx, solana } from '../sdk/src/server/index.js'
 
 const recipient = process.env.RECIPIENT!
 if (!recipient) {

@@ -5,22 +5,28 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./sdk/src/index.ts",
+      "default": "./sdk/src/index.ts"
     },
     "./server": {
-      "types": "./src/server/index.ts",
-      "default": "./src/server/index.ts"
+      "types": "./sdk/src/server/index.ts",
+      "default": "./sdk/src/server/index.ts"
     },
     "./client": {
-      "types": "./src/client/index.ts",
-      "default": "./src/client/index.ts"
+      "types": "./sdk/src/client/index.ts",
+      "default": "./sdk/src/client/index.ts"
     }
   },
   "scripts": {
+    "test": "node --import tsx/esm --test sdk/src/__tests__/charge.test.ts",
+    "test:integration": "node --import tsx/esm --test sdk/src/__tests__/integration.test.ts",
+    "test:all": "npm test && npm run test:integration",
     "typecheck": "tsc --noEmit",
     "example:server": "npx tsx examples/server.ts",
-    "example:client": "npx tsx examples/client.ts"
+    "example:client": "npx tsx examples/client.ts",
+    "demo:install": "cd demo/server && npm install && cd ../app && npm install",
+    "demo:server": "cd demo/server && npm run dev",
+    "demo:app": "cd demo/app && npm run dev"
   },
   "dependencies": {
     "@solana-program/system": "^0.11.0",

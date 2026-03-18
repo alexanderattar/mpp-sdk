@@ -3,9 +3,14 @@ import { Method, z } from 'mppx'
 /**
  * Solana charge method — shared schema used by both server and client.
  *
- * The challenge request carries a recipient address and amount so the client
- * knows exactly what to pay. The credential payload carries the transaction
- * signature, which the server verifies on-chain via RPC.
+ * Supports two credential payload types:
+ *
+ * - **type="transaction"** (default): Client signs the transaction and sends
+ *   the serialized bytes to the server. The server broadcasts it to the
+ *   Solana network, confirms, and verifies the transfer on-chain.
+ *
+ * - **type="signature"**: Client broadcasts the transaction itself and sends
+ *   the confirmed transaction signature. The server verifies on-chain only.
  */
 export const charge = Method.from({
   intent: 'charge',
@@ -13,8 +18,12 @@ export const charge = Method.from({
   schema: {
     credential: {
       payload: z.object({
-        /** Base58-encoded transaction signature proving payment. */
-        signature: z.string(),
+        /** Payload type: "transaction" (server broadcasts) or "signature" (client already broadcast). */
+        type: z.string(),
+        /** Base64-encoded serialized signed transaction (when type="transaction"). */
+        transaction: z.optional(z.string()),
+        /** Base58-encoded transaction signature (when type="signature"). */
+        signature: z.optional(z.string()),
       }),
     },
     request: z.object({
@@ -35,6 +44,10 @@ export const charge = Method.from({
         decimals: z.optional(z.number()),
         /** Token program address (TOKEN_PROGRAM or TOKEN_2022_PROGRAM). Defaults to TOKEN_PROGRAM. */
         tokenProgram: z.optional(z.string()),
+        /** If true, server pays transaction fees. Client must use the server's feePayerKey. */
+        feePayer: z.optional(z.boolean()),
+        /** Server's base58-encoded public key for fee payment. Present when feePayer is true. */
+        feePayerKey: z.optional(z.string()),
       }),
     }),
   },

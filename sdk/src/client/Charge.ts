@@ -3,12 +3,14 @@ import {
   createSolanaRpc,
   pipe,
   createTransactionMessage,
+  setTransactionMessageFeePayer,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   setTransactionMessageComputeUnitLimit,
   setTransactionMessageComputeUnitPrice,
   appendTransactionMessageInstructions,
   signTransactionMessageWithSigners,
+  partiallySignTransactionMessageWithSigners,
   getBase64EncodedWireTransaction,
   address,
   AccountRole,
@@ -30,12 +32,20 @@ import {
 /**
  * Creates a Solana `charge` method for usage on the client.
  *
- * Intercepts 402 responses, builds and sends a Solana transaction to pay the
- * requested amount, and retries with the transaction signature as credential.
+ * Supports two modes controlled by the `broadcast` option:
  *
- * The `signer` parameter accepts any `TransactionSigner` from `@solana/kit`,
- * which is compatible with ConnectorKit's `useTransactionSigner()` hook and
- * with `createKeyPairSignerFromBytes()` for headless/server usage.
+ * - **`broadcast: false`** (default, server-broadcast): Signs the transaction
+ *   and sends the serialized bytes as a `type="transaction"` credential.
+ *   The server broadcasts it to the Solana network.
+ *
+ * - **`broadcast: true`** (client-broadcast): Signs, broadcasts, confirms
+ *   the transaction on-chain, and sends the signature as a `type="signature"`
+ *   credential. Cannot be used with server fee sponsorship.
+ *
+ * When the server advertises `feePayer: true` in the challenge, the client
+ * sets the server's `feePayerKey` as the transaction fee payer and partially
+ * signs (transfer authority only). The server adds its fee payer signature
+ * before broadcasting.
  *
  * @example
  * ```ts
@@ -49,7 +59,7 @@ import {
  * ```
  */
 export function charge(parameters: charge.Parameters) {
-  const { signer, onProgress } = parameters
+  const { signer, broadcast = false, onProgress } = parameters
 
   const method = Method.toClient(Methods.charge, {
     async createCredential({ challenge }) {
@@ -60,6 +70,8 @@ export function charge(parameters: charge.Parameters) {
         splToken,
         decimals,
         tokenProgram: tokenProgramAddr,
+        feePayer: serverPaysFees,
+        feePayerKey,
       } = methodDetails
 
       const rpcUrl =
@@ -68,11 +80,14 @@ export function charge(parameters: charge.Parameters) {
         DEFAULT_RPC_URLS['mainnet-beta']
       const rpc = createSolanaRpc(rpcUrl)
 
+      const { currency } = challenge.request
       onProgress?.({
         type: 'challenge',
         recipient,
         amount,
+        currency: currency || (splToken ? 'token' : 'SOL'),
         splToken: splToken || undefined,
+        feePayerKey: feePayerKey || undefined,
       })
 
       // Build transfer instructions.
@@ -130,42 +145,62 @@ export function charge(parameters: charge.Parameters) {
         )
       }
 
-      onProgress?.({ type: 'paying' })
+      onProgress?.({ type: 'signing' })
 
-      // Build, sign, and send the transaction.
+      // Build and sign the transaction.
       const { value: latestBlockhash } = await rpc
         .getLatestBlockhash()
         .send()
 
+      const useServerFeePayer = serverPaysFees && feePayerKey && !broadcast
+
       const txMessage = pipe(
         createTransactionMessage({ version: 0 }),
-        (msg) => setTransactionMessageFeePayerSigner(signer, msg),
+        (msg) =>
+          useServerFeePayer
+            ? setTransactionMessageFeePayer(address(feePayerKey), msg)
+            : setTransactionMessageFeePayerSigner(signer, msg),
         (msg) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, msg),
         (msg) => setTransactionMessageComputeUnitLimit(50_000, msg),
         (msg) => setTransactionMessageComputeUnitPrice(1n, msg),
         (msg) => appendTransactionMessageInstructions(instructions, msg),
       )
 
-      const signedTx = await signTransactionMessageWithSigners(txMessage)
+      // When server pays fees, partially sign (only the transfer authority).
+      // The server will add its fee payer signature before broadcasting.
+      const signedTx = useServerFeePayer
+        ? await partiallySignTransactionMessageWithSigners(txMessage)
+        : await signTransactionMessageWithSigners(txMessage)
+
       const encodedTx = getBase64EncodedWireTransaction(signedTx)
 
-      const signature = await rpc
-        .sendTransaction(encodedTx, {
-          encoding: 'base64',
-          skipPreflight: false,
+      if (broadcast) {
+        // ── Client-broadcast mode (type="signature") ──
+        onProgress?.({ type: 'paying' })
+
+        const signature = await rpc
+          .sendTransaction(encodedTx, {
+            encoding: 'base64',
+            skipPreflight: false,
+          })
+          .send()
+
+        onProgress?.({ type: 'confirming', signature })
+        await confirmTransaction(rpc, signature)
+        onProgress?.({ type: 'paid', signature })
+
+        return Credential.serialize({
+          challenge,
+          payload: { type: 'signature', signature },
         })
-        .send()
+      }
 
-      onProgress?.({ type: 'confirming', signature })
-
-      // Wait for on-chain confirmation before returning the credential.
-      await confirmTransaction(rpc, signature)
-
-      onProgress?.({ type: 'paid', signature })
+      // ── Server-broadcast mode (type="transaction", default) ──
+      onProgress?.({ type: 'signed', transaction: encodedTx })
 
       return Credential.serialize({
         challenge,
-        payload: { signature },
+        payload: { type: 'transaction', transaction: encodedTx },
       })
     },
   })
@@ -202,7 +237,7 @@ function createAssociatedTokenAccountIdempotent(
 
 /**
  * Polls for transaction confirmation via getSignatureStatuses.
- * Avoids requiring WebSocket subscriptions.
+ * Only used in client-broadcast mode.
  */
 async function confirmTransaction(
   rpc: ReturnType<typeof createSolanaRpc>,
@@ -244,12 +279,23 @@ export declare namespace charge {
     signer: TransactionSigner
     /** Custom RPC URL. If not set, inferred from the challenge's network field. */
     rpcUrl?: string
+    /**
+     * If true, the client broadcasts the transaction and sends the signature
+     * as a `type="signature"` credential. If false (default), the client sends
+     * the signed transaction bytes as a `type="transaction"` credential and the
+     * server broadcasts it.
+     *
+     * Cannot be used with server fee sponsorship (feePayer mode).
+     */
+    broadcast?: boolean
     /** Called at each step of the payment process. */
     onProgress?: (event: ProgressEvent) => void
   }
 
   type ProgressEvent =
-    | { type: 'challenge'; recipient: string; amount: string; splToken?: string }
+    | { type: 'challenge'; recipient: string; amount: string; currency: string; splToken?: string; feePayerKey?: string }
+    | { type: 'signing' }
+    | { type: 'signed'; transaction: string }
     | { type: 'paying' }
     | { type: 'confirming'; signature: string }
     | { type: 'paid'; signature: string }
