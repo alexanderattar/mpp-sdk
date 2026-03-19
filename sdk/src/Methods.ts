@@ -52,6 +52,8 @@ export const charge = Method.from({
         feePayer: z.optional(z.boolean()),
         /** Server's base58-encoded public key for fee payment. Present when feePayer is true. */
         feePayerKey: z.optional(z.string()),
+        /** Server-provided base58-encoded recent blockhash. Saves the client an RPC round-trip. */
+        recentBlockhash: z.optional(z.string()),
       }),
     }),
   },

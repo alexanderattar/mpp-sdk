@@ -90,6 +90,25 @@ export function charge(parameters: charge.Parameters) {
 
       const reference = crypto.randomUUID()
 
+      // Pre-fetch a recent blockhash so the client can skip an RPC call.
+      let recentBlockhash: string | undefined
+      try {
+        const res = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'getLatestBlockhash',
+            params: [{ commitment: 'confirmed' }],
+          }),
+        })
+        const data = (await res.json()) as { result?: { value?: { blockhash?: string } } }
+        recentBlockhash = data.result?.value?.blockhash
+      } catch {
+        // Non-fatal — client will fetch its own blockhash.
+      }
+
       return {
         ...request,
         recipient,
@@ -102,6 +121,7 @@ export function charge(parameters: charge.Parameters) {
           ...(signer
             ? { feePayer: true, feePayerKey: signer.address }
             : {}),
+          ...(recentBlockhash ? { recentBlockhash } : {}),
         },
       }
     },
@@ -169,6 +189,10 @@ async function verifyTransaction(
 
   // When the server has a fee payer signer, decode the client's partially-signed
   // transaction, add the fee payer signature, and re-encode.
+  // NOTE: The fee payer covers all tx costs including ATA rent (~0.002 SOL).
+  // Recipients can close ATAs to reclaim rent, forcing re-creation on the next
+  // payment. Servers should verify ATA existence before signing or factor rent
+  // into pricing to mitigate this drain vector.
   if (signer && isKeyPairSigner(signer)) {
     const txBytes = Uint8Array.from(atob(clientTxBase64), (c) => c.charCodeAt(0))
     const decoder = getTransactionDecoder()
@@ -176,6 +200,9 @@ async function verifyTransaction(
     const cosigned = await partiallySignTransaction([signer.keyPair], tx)
     txToSend = getBase64EncodedWireTransaction(cosigned)
   }
+
+  // Simulate before broadcast to catch failures without wasting fees.
+  await simulateTransaction(rpcUrl, txToSend)
 
   // Broadcast the (now fully-signed) transaction.
   const signature = await broadcastTransaction(rpcUrl, txToSend)
@@ -355,6 +382,7 @@ type ChallengeRequest = {
     tokenProgram?: string
     feePayer?: boolean
     feePayerKey?: string
+    recentBlockhash?: string
   }
 }
 
@@ -407,6 +435,31 @@ async function fetchTransaction(
   }
   if (data.error) throw new Error(`RPC error: ${data.error.message}`)
   return data.result ?? null
+}
+
+async function simulateTransaction(
+  rpcUrl: string,
+  base64Tx: string,
+): Promise<void> {
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'simulateTransaction',
+      params: [base64Tx, { encoding: 'base64', commitment: 'confirmed' }],
+    }),
+  })
+  const data = (await response.json()) as {
+    result?: { value?: { err: unknown; logs?: string[] } }
+    error?: { message: string }
+  }
+  if (data.error) throw new Error(`RPC error: ${data.error.message}`)
+  const simErr = data.result?.value?.err
+  if (simErr) {
+    throw new Error(`Transaction simulation failed: ${JSON.stringify(simErr)}`)
+  }
 }
 
 async function broadcastTransaction(

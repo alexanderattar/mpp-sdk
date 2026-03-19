@@ -195,6 +195,10 @@ test('charge() does not throw for native SOL (no splToken)', () => {
 // ── Request generation ──
 
 test('request() generates a unique reference and populates fields', async () => {
+  // Mock fetch for the blockhash pre-fetch in request().
+  globalThis.fetch = async () =>
+    rpcSuccess({ value: { blockhash: 'MockBlockhash1111111111111111111111111111111', lastValidBlockHeight: 100 } })
+
   const method = charge({
     recipient: RECIPIENT,
     splToken: USDC_MINT,
@@ -220,6 +224,7 @@ test('request() generates a unique reference and populates fields', async () => 
   assert.equal(request1.methodDetails.splToken, USDC_MINT)
   assert.equal(request1.methodDetails.decimals, 6)
   assert.ok(request1.methodDetails.reference, 'reference should be set')
+  assert.ok(request1.methodDetails.recentBlockhash, 'recentBlockhash should be set')
   // Each call generates a fresh reference
   assert.notEqual(request1.methodDetails.reference, request2.methodDetails.reference)
 })
@@ -605,13 +610,16 @@ test('signature: throws when no TransferChecked instruction found (SPL)', async 
  *   3. getTransaction → returns parsed tx for verification
  */
 function mockServerBroadcastFetch(
-  txResult: any,
+  txResult: unknown,
   signature: string = SIGNATURE,
 ) {
-  let callIndex = 0
-  globalThis.fetch = async (_url: any, init: any) => {
-    const body = JSON.parse(init.body)
+  globalThis.fetch = async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(init?.body as string)
     const method = body.method
+
+    if (method === 'simulateTransaction') {
+      return rpcSuccess({ value: { err: null, logs: [] } })
+    }
 
     if (method === 'sendTransaction') {
       return rpcSuccess(signature)

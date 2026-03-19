@@ -81,6 +81,7 @@ export function charge(parameters: charge.Parameters) {
         tokenProgram: tokenProgramAddr,
         feePayer: serverPaysFees,
         feePayerKey,
+        recentBlockhash: serverBlockhash,
       } = methodDetails
 
       const rpcUrl =
@@ -120,6 +121,11 @@ export function charge(parameters: charge.Parameters) {
         })
 
         // Create destination ATA if it doesn't exist (idempotent).
+        // WARNING: When the server is fee payer, it pays ~0.002 SOL rent for ATA
+        // creation. The recipient can close the ATA to reclaim rent, then the next
+        // payment re-creates it — repeatedly draining the fee payer. Servers SHOULD
+        // verify the ATA exists before signing, or require recipients to pre-create
+        // their ATAs, or factor rent cost into pricing.
         if (useServerFeePayer) {
           // In fee payer mode, the server's key pays ATA rent.
           // We build the instruction manually since the payer isn't a local signer.
@@ -175,10 +181,15 @@ export function charge(parameters: charge.Parameters) {
 
       onProgress?.({ type: 'signing' })
 
-      // Build and sign the transaction.
-      const { value: latestBlockhash } = await rpc
-        .getLatestBlockhash()
-        .send()
+      // Use server-provided blockhash if available, otherwise fetch one.
+      const latestBlockhash = serverBlockhash
+        ? {
+            blockhash: serverBlockhash as Parameters<
+              typeof setTransactionMessageLifetimeUsingBlockhash
+            >[0]['blockhash'],
+            lastValidBlockHeight: BigInt(0), // Server doesn't provide this; tx lifetime is managed by the blockhash itself.
+          }
+        : (await rpc.getLatestBlockhash().send()).value
 
       const txMessage = pipe(
         createTransactionMessage({ version: 0 }),
