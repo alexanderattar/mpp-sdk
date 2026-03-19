@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish to npm (TypeScript SDK)
 
 on:
   workflow_dispatch:
@@ -132,17 +132,6 @@ jobs:
             echo "dist/index.js and dist/index.d.ts present"
           done
 
-      - name: Create and push tag
-        run: |
-          TAG="v${{ steps.version.outputs.version }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping"
-          else
-            git tag "$TAG"
-            echo "Created tag $TAG"
-          fi
-          git push origin "$TAG" 2>/dev/null || echo "Tag already pushed"
-
       - name: Publish to npm
         if: ${{ github.event.inputs.publish-to-npm == 'true' }}
         run: |
@@ -160,6 +149,17 @@ jobs:
             ls -la .npm-pack/ || true
             exit 1
           fi
+
+      - name: Create and push tag
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            echo "Created tag $TAG"
+          fi
+          git push origin "$TAG" 2>/dev/null || echo "Tag already pushed"
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.create-github-release == 'true' }}
@@ -179,6 +179,8 @@ jobs:
             \`\`\`bash
             pnpm add @solana/mpp
             \`\`\`
+
+            [npm](https://www.npmjs.com/package/@solana/mpp/v/${version})
             `;
 
             // Check if release already exists
