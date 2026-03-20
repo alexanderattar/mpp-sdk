@@ -28,7 +28,7 @@ export function registerStocks(
   app.get('/api/v1/stocks/quote/:symbol', async (req, res) => {
     const result = await mppx.charge({
       amount: '10000', // 0.01 USDC
-      currency: 'USDC',
+      currency: USDC_MINT,
       description: `Stock quote: ${req.params.symbol}`,
     })(toWebRequest(req))
 
@@ -58,7 +58,7 @@ export function registerStocks(
 
     const result = await mppx.charge({
       amount: '10000', // 0.01 USDC
-      currency: 'USDC',
+      currency: USDC_MINT,
       description: `Stock search: ${q}`,
     })(toWebRequest(req))
 
@@ -84,7 +84,7 @@ export function registerStocks(
   app.get('/api/v1/stocks/history/:symbol', async (req, res) => {
     const result = await mppx.charge({
       amount: '50000', // 0.05 USDC
-      currency: 'USDC',
+      currency: USDC_MINT,
       description: `Stock history: ${req.params.symbol}`,
     })(toWebRequest(req))
 

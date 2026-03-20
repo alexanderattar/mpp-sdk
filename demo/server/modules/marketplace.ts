@@ -90,7 +90,7 @@ export function registerMarketplace(
 
         const result = await mppx.charge({
             amount: String(totalAmount),
-            currency: 'USDC',
+            currency: USDC_MINT,
             description: `Purchase: ${product.name}`,
         })(toWebRequest(req));
 

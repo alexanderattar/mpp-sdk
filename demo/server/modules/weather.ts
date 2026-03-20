@@ -39,7 +39,7 @@ export function registerWeather(
 
     const result = await mppx.charge({
       amount: '10000', // 0.01 USDC
-      currency: 'USDC',
+      currency: USDC_MINT,
       description: `Weather for ${req.params.city}`,
     })(toWebRequest(req))
 
