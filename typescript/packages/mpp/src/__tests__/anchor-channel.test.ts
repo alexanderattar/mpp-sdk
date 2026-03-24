@@ -46,7 +46,8 @@ import {
 import { serializeVoucher, signVoucher } from '../session/Voucher.js';
 
 const PROGRAM_ID = address('21fLdahqKtVAt4V2JLwVrRb7tuqPADjjPVCU9bK3MFPQ');
-const PROGRAM_SO_PATH = new URL('../../../../../programs/mpp-channel/target/deploy/mpp_channel.so', import.meta.url).pathname;
+const PROGRAM_SO_PATH = new URL('../../../../../programs/mpp-channel/target/deploy/mpp_channel.so', import.meta.url)
+    .pathname;
 const RPC_URL = 'http://127.0.0.1:8899';
 const GRACE_PERIOD = 2n; // 2 seconds for testing
 const MINT_DECIMALS = 6;
@@ -107,10 +108,7 @@ async function sendTx(instructions: Instruction[], signers: KeyPairSigner[]): Pr
         instructions,
         setTransactionMessageLifetimeUsingBlockhash(
             { blockhash: blockhash as any, lastValidBlockHeight },
-            setTransactionMessageFeePayer(
-                feePayer.address,
-                createTransactionMessage({ version: 0 }),
-            ),
+            setTransactionMessageFeePayer(feePayer.address, createTransactionMessage({ version: 0 })),
         ),
     );
 
@@ -136,7 +134,10 @@ async function getTokenBalance(tokenAccount: Address): Promise<bigint> {
 }
 
 async function getAccountData(accountAddress: Address): Promise<Uint8Array | null> {
-    const result = (await rpcCall('getAccountInfo', [accountAddress, { encoding: 'base64', commitment: 'confirmed' }])) as {
+    const result = (await rpcCall('getAccountInfo', [
+        accountAddress,
+        { encoding: 'base64', commitment: 'confirmed' },
+    ])) as {
         value: { data: [string, string] } | null;
     };
     if (!result?.value) return null;
@@ -149,18 +150,22 @@ async function getAccountData(accountAddress: Address): Promise<Uint8Array | nul
 async function startValidator(): Promise<void> {
     const repoRoot = new URL('../../../../../', import.meta.url).pathname;
 
-    validatorProcess = spawn('solana-test-validator', [
-        '--bpf-program', PROGRAM_ID, PROGRAM_SO_PATH,
-        '--reset',
-        '--quiet',
-    ], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: repoRoot,
-    });
+    validatorProcess = spawn(
+        'solana-test-validator',
+        ['--bpf-program', PROGRAM_ID, PROGRAM_SO_PATH, '--reset', '--quiet'],
+        {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            cwd: repoRoot,
+        },
+    );
 
     let processOutput = '';
-    validatorProcess.stdout?.on('data', (data: Buffer) => { processOutput += data.toString(); });
-    validatorProcess.stderr?.on('data', (data: Buffer) => { processOutput += data.toString(); });
+    validatorProcess.stdout?.on('data', (data: Buffer) => {
+        processOutput += data.toString();
+    });
+    validatorProcess.stderr?.on('data', (data: Buffer) => {
+        processOutput += data.toString();
+    });
 
     for (let i = 0; i < 60; i++) {
         try {
@@ -197,8 +202,16 @@ async function setupTestTokens(): Promise<void> {
     mint = mintKeypair.address;
 
     // Create ATAs for payer and payee.
-    const [payerAtaAddr] = await findAssociatedTokenPda({ mint, owner: payer.address, tokenProgram: TOKEN_PROGRAM_ADDRESS });
-    const [payeeAtaAddr] = await findAssociatedTokenPda({ mint, owner: payee.address, tokenProgram: TOKEN_PROGRAM_ADDRESS });
+    const [payerAtaAddr] = await findAssociatedTokenPda({
+        mint,
+        owner: payer.address,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
+    const [payeeAtaAddr] = await findAssociatedTokenPda({
+        mint,
+        owner: payee.address,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+    });
 
     const createPayerAta = getCreateAssociatedTokenIdempotentInstruction({
         payer,
@@ -261,7 +274,14 @@ describe('mpp-channel program', () => {
         const salt = 100n;
         const depositAmount = 1_000_000n;
 
-        const [channelPda] = await deriveChannelPda(PROGRAM_ID, payer.address, payee.address, mint, salt, payer.address);
+        const [channelPda] = await deriveChannelPda(
+            PROGRAM_ID,
+            payer.address,
+            payee.address,
+            mint,
+            salt,
+            payer.address,
+        );
         const vaultPda = await deriveVaultPda(channelPda, mint);
 
         const openIx = buildOpenInstruction({
@@ -289,23 +309,35 @@ describe('mpp-channel program', () => {
         const depositAmount = 1_000_000n;
         const settleAmount = 300_000n;
 
-        const [channelPda] = await deriveChannelPda(PROGRAM_ID, payer.address, payee.address, mint, salt, payer.address);
+        const [channelPda] = await deriveChannelPda(
+            PROGRAM_ID,
+            payer.address,
+            payee.address,
+            mint,
+            salt,
+            payer.address,
+        );
         const vaultPda = await deriveVaultPda(channelPda, mint);
 
         // Open channel.
-        await sendTx([buildOpenInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            payee: payee.address,
-            mint,
-            channelPda,
-            payerTokenAccount: payerAta,
-            vault: vaultPda,
-            salt,
-            deposit: depositAmount,
-            gracePeriodSeconds: GRACE_PERIOD,
-            authorizedSigner: payer.address,
-        })], [payer]);
+        await sendTx(
+            [
+                buildOpenInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    payee: payee.address,
+                    mint,
+                    channelPda,
+                    payerTokenAccount: payerAta,
+                    vault: vaultPda,
+                    salt,
+                    deposit: depositAmount,
+                    gracePeriodSeconds: GRACE_PERIOD,
+                    authorizedSigner: payer.address,
+                }),
+            ],
+            [payer],
+        );
 
         // Sign a voucher.
         const voucher = { channelId: channelPda, cumulativeAmount: settleAmount.toString() };
@@ -339,74 +371,95 @@ describe('mpp-channel program', () => {
         const salt = 300n;
         const depositAmount = 1_000_000n;
 
-        const [channelPda] = await deriveChannelPda(PROGRAM_ID, payer.address, payee.address, mint, salt, payer.address);
+        const [channelPda] = await deriveChannelPda(
+            PROGRAM_ID,
+            payer.address,
+            payee.address,
+            mint,
+            salt,
+            payer.address,
+        );
         const vaultPda = await deriveVaultPda(channelPda, mint);
 
         // Open.
-        await sendTx([buildOpenInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            payee: payee.address,
-            mint,
-            channelPda,
-            payerTokenAccount: payerAta,
-            vault: vaultPda,
-            salt,
-            deposit: depositAmount,
-            gracePeriodSeconds: GRACE_PERIOD,
-            authorizedSigner: payer.address,
-        })], [payer]);
+        await sendTx(
+            [
+                buildOpenInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    payee: payee.address,
+                    mint,
+                    channelPda,
+                    payerTokenAccount: payerAta,
+                    vault: vaultPda,
+                    salt,
+                    deposit: depositAmount,
+                    gracePeriodSeconds: GRACE_PERIOD,
+                    authorizedSigner: payer.address,
+                }),
+            ],
+            [payer],
+        );
 
         // Settle partial (200k).
         const voucher1 = { channelId: channelPda, cumulativeAmount: '200000' };
         const signed1 = await signVoucher(payer, voucher1);
-        await sendTx(buildSettleInstructions({
-            programId: PROGRAM_ID,
-            payee: payee.address,
-            channelPda,
-            mint,
-            vault: vaultPda,
-            payeeTokenAccount: payeeAta,
-            cumulativeAmount: 200_000n,
-            voucherMessage: serializeVoucher(voucher1),
-            signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
-            signature: new Uint8Array(base58Encoder.encode(signed1.signature)),
-        }), [payee]);
+        await sendTx(
+            buildSettleInstructions({
+                programId: PROGRAM_ID,
+                payee: payee.address,
+                channelPda,
+                mint,
+                vault: vaultPda,
+                payeeTokenAccount: payeeAta,
+                cumulativeAmount: 200_000n,
+                voucherMessage: serializeVoucher(voucher1),
+                signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
+                signature: new Uint8Array(base58Encoder.encode(signed1.signature)),
+            }),
+            [payee],
+        );
 
         // Settle more (500k cumulative).
         const voucher2 = { channelId: channelPda, cumulativeAmount: '500000' };
         const signed2 = await signVoucher(payer, voucher2);
-        await sendTx(buildSettleInstructions({
-            programId: PROGRAM_ID,
-            payee: payee.address,
-            channelPda,
-            mint,
-            vault: vaultPda,
-            payeeTokenAccount: payeeAta,
-            cumulativeAmount: 500_000n,
-            voucherMessage: serializeVoucher(voucher2),
-            signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
-            signature: new Uint8Array(base58Encoder.encode(signed2.signature)),
-        }), [payee]);
+        await sendTx(
+            buildSettleInstructions({
+                programId: PROGRAM_ID,
+                payee: payee.address,
+                channelPda,
+                mint,
+                vault: vaultPda,
+                payeeTokenAccount: payeeAta,
+                cumulativeAmount: 500_000n,
+                voucherMessage: serializeVoucher(voucher2),
+                signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
+                signature: new Uint8Array(base58Encoder.encode(signed2.signature)),
+            }),
+            [payee],
+        );
 
         // Close with final voucher (700k cumulative).
         const voucher3 = { channelId: channelPda, cumulativeAmount: '700000' };
         const signed3 = await signVoucher(payer, voucher3);
         const payerBalanceBefore = await getTokenBalance(payerAta);
 
-        await sendTx(buildCloseInstructions({
-            programId: PROGRAM_ID,
-            payee: payee.address,
-            channelPda,
-            mint,
-            vault: vaultPda,
-            payeeTokenAccount: payeeAta,
-            payerTokenAccount: payerAta,
-            cumulativeAmount: 700_000n,
-            voucherMessage: serializeVoucher(voucher3),
-            signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
-            signature: new Uint8Array(base58Encoder.encode(signed3.signature)),
-        }), [payee]);
+        await sendTx(
+            buildCloseInstructions({
+                programId: PROGRAM_ID,
+                payee: payee.address,
+                channelPda,
+                mint,
+                vault: vaultPda,
+                payeeTokenAccount: payeeAta,
+                payerTokenAccount: payerAta,
+                cumulativeAmount: 700_000n,
+                voucherMessage: serializeVoucher(voucher3),
+                signerPublicKey: new Uint8Array(base58Encoder.encode(payer.address)),
+                signature: new Uint8Array(base58Encoder.encode(signed3.signature)),
+            }),
+            [payee],
+        );
 
         // Payer should get refund of 300k (1M - 700k).
         const payerBalanceAfter = await getTokenBalance(payerAta);
@@ -421,44 +474,66 @@ describe('mpp-channel program', () => {
         const salt = 400n;
         const depositAmount = 500_000n;
 
-        const [channelPda] = await deriveChannelPda(PROGRAM_ID, payer.address, payee.address, mint, salt, payer.address);
+        const [channelPda] = await deriveChannelPda(
+            PROGRAM_ID,
+            payer.address,
+            payee.address,
+            mint,
+            salt,
+            payer.address,
+        );
         const vaultPda = await deriveVaultPda(channelPda, mint);
 
         // Open.
-        await sendTx([buildOpenInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            payee: payee.address,
-            mint,
-            channelPda,
-            payerTokenAccount: payerAta,
-            vault: vaultPda,
-            salt,
-            deposit: depositAmount,
-            gracePeriodSeconds: GRACE_PERIOD,
-            authorizedSigner: payer.address,
-        })], [payer]);
+        await sendTx(
+            [
+                buildOpenInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    payee: payee.address,
+                    mint,
+                    channelPda,
+                    payerTokenAccount: payerAta,
+                    vault: vaultPda,
+                    salt,
+                    deposit: depositAmount,
+                    gracePeriodSeconds: GRACE_PERIOD,
+                    authorizedSigner: payer.address,
+                }),
+            ],
+            [payer],
+        );
 
         // Request close.
-        await sendTx([buildRequestCloseInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            channelPda,
-        })], [payer]);
+        await sendTx(
+            [
+                buildRequestCloseInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    channelPda,
+                }),
+            ],
+            [payer],
+        );
 
         // Wait for grace period to expire.
         await new Promise(r => setTimeout(r, 3000));
 
         // Withdraw.
         const payerBalanceBefore = await getTokenBalance(payerAta);
-        await sendTx([buildWithdrawInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            channelPda,
-            mint,
-            vault: vaultPda,
-            payerTokenAccount: payerAta,
-        })], [payer]);
+        await sendTx(
+            [
+                buildWithdrawInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    channelPda,
+                    mint,
+                    vault: vaultPda,
+                    payerTokenAccount: payerAta,
+                }),
+            ],
+            [payer],
+        );
         const payerBalanceAfter = await getTokenBalance(payerAta);
 
         expect(payerBalanceAfter - payerBalanceBefore).toBe(depositAmount);
@@ -469,41 +544,63 @@ describe('mpp-channel program', () => {
         const depositAmount = 500_000n;
         const topUpAmount = 200_000n;
 
-        const [channelPda] = await deriveChannelPda(PROGRAM_ID, payer.address, payee.address, mint, salt, payer.address);
+        const [channelPda] = await deriveChannelPda(
+            PROGRAM_ID,
+            payer.address,
+            payee.address,
+            mint,
+            salt,
+            payer.address,
+        );
         const vaultPda = await deriveVaultPda(channelPda, mint);
 
         // Open.
-        await sendTx([buildOpenInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            payee: payee.address,
-            mint,
-            channelPda,
-            payerTokenAccount: payerAta,
-            vault: vaultPda,
-            salt,
-            deposit: depositAmount,
-            gracePeriodSeconds: GRACE_PERIOD,
-            authorizedSigner: payer.address,
-        })], [payer]);
+        await sendTx(
+            [
+                buildOpenInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    payee: payee.address,
+                    mint,
+                    channelPda,
+                    payerTokenAccount: payerAta,
+                    vault: vaultPda,
+                    salt,
+                    deposit: depositAmount,
+                    gracePeriodSeconds: GRACE_PERIOD,
+                    authorizedSigner: payer.address,
+                }),
+            ],
+            [payer],
+        );
 
         // Request close.
-        await sendTx([buildRequestCloseInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            channelPda,
-        })], [payer]);
+        await sendTx(
+            [
+                buildRequestCloseInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    channelPda,
+                }),
+            ],
+            [payer],
+        );
 
         // TopUp should cancel the close request.
-        await sendTx([buildTopUpInstruction({
-            programId: PROGRAM_ID,
-            payer: payer.address,
-            channelPda,
-            mint,
-            vault: vaultPda,
-            payerTokenAccount: payerAta,
-            amount: topUpAmount,
-        })], [payer]);
+        await sendTx(
+            [
+                buildTopUpInstruction({
+                    programId: PROGRAM_ID,
+                    payer: payer.address,
+                    channelPda,
+                    mint,
+                    vault: vaultPda,
+                    payerTokenAccount: payerAta,
+                    amount: topUpAmount,
+                }),
+            ],
+            [payer],
+        );
 
         const vaultBalance = await getTokenBalance(vaultPda);
         expect(vaultBalance).toBe(depositAmount + topUpAmount);

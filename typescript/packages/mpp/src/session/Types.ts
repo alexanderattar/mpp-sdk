@@ -32,9 +32,9 @@ export interface ChannelState {
     escrowedAmount: string;
     /** Whether the channel has been finalized (closed). */
     finalized: boolean;
-    payer: string;
     /** Payee (recipient) wallet. */
     payee: string;
+    payer: string;
     /** Highest cumulativeAmount already claimed via on-chain settle. */
     settledOnChain: string;
     /** Cumulative amount charged for delivered service. */

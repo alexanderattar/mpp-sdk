@@ -161,10 +161,11 @@ export const session = Method.from({
             /** Merchant's reference for reconciliation. */
             externalId: z.optional(z.string()),
             methodDetails: z.object({
-                /** Channel program address for voucher verification. */
-                channelProgram: z.string(),
                 /** Existing channel PDA to resume (if reconnecting to an open channel). */
                 channelId: z.optional(z.string()),
+
+                /** Channel program address for voucher verification. */
+                channelProgram: z.string(),
                 /** Token decimals (required for SPL tokens). */
                 decimals: z.optional(z.number()),
                 /** If true, server pays transaction fees. Client must use feePayerKey. */

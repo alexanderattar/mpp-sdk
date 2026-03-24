@@ -66,15 +66,11 @@ describe('BinaryVoucher', () => {
 
     describe('validation', () => {
         it('rejects wrong length', () => {
-            expect(() => deserializeBinaryVoucher(new Uint8Array(100))).toThrow(
-                'Invalid binary voucher length',
-            );
+            expect(() => deserializeBinaryVoucher(new Uint8Array(100))).toThrow('Invalid binary voucher length');
         });
 
         it('rejects empty buffer', () => {
-            expect(() => deserializeBinaryVoucher(new Uint8Array(0))).toThrow(
-                'Invalid binary voucher length',
-            );
+            expect(() => deserializeBinaryVoucher(new Uint8Array(0))).toThrow('Invalid binary voucher length');
         });
     });
 

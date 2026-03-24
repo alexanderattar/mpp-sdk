@@ -21,8 +21,7 @@
 
 import type { Address, Instruction } from '@solana/kit';
 
-const ED25519_PROGRAM_ID =
-    'Ed25519SigVerify111111111111111111111111111' as Address;
+const ED25519_PROGRAM_ID = 'Ed25519SigVerify111111111111111111111111111' as Address;
 
 const SAME_INSTRUCTION: number = 0xffff;
 // Layout: 2 (num_sigs u16) + 14 (descriptor: 7 x u16) = 16 bytes header
@@ -75,8 +74,8 @@ export function createEd25519VerifyInstruction(
     data.set(message, MESSAGE_OFFSET);
 
     return {
-        programAddress: ED25519_PROGRAM_ID,
         accounts: [],
         data,
+        programAddress: ED25519_PROGRAM_ID,
     };
 }

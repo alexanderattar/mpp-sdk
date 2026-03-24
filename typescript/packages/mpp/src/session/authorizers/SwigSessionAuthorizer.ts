@@ -434,10 +434,7 @@ export class SwigSessionAuthorizer implements SessionAuthorizer {
         return new Date(start + this.policy.ttlSeconds * 1000).toISOString();
     }
 
-    private async resolveOpenTx(
-        input: AuthorizeOpenInput,
-        session: SessionSignerState,
-    ): Promise<string> {
+    private async resolveOpenTx(input: AuthorizeOpenInput, session: SessionSignerState): Promise<string> {
         if (!this.buildOpenTx) {
             if (!session.openTx) {
                 throw new Error(

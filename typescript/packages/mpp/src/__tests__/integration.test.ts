@@ -800,7 +800,6 @@ test('e2e: session auto-open then update over repeated requests', async () => {
         expect(channel!.escrowedAmount).toBe('1000');
         expect(channel!.acceptedCumulative).toBe('10');
 
-
         expect(events).toContain('challenge');
         expect(events).toContain('opening');
         expect(events).toContain('opened');
@@ -1026,7 +1025,6 @@ test('e2e: session swig_session mode uses on-chain setup and enforces spend limi
         expect(channel!.authorizedSigner).toBe(delegatedSigner!.address);
         expect(channel!.acceptedCumulative).toBe('10');
 
-
         const recipientBalanceBefore = await getBalance(client, recipientSigner.address);
 
         const withinLimitSignature = await swig.spendFromSwig(500n, recipientSigner.address);
@@ -1181,7 +1179,6 @@ test('e2e: session regular_budget mode enforces on-chain Swig role limits', asyn
         const channel = await getSessionChannel(harness.store, channelId);
         expect(channel).toBeTruthy();
         expect(channel!.acceptedCumulative).toBe('400');
-
     } finally {
         await harness.close();
     }

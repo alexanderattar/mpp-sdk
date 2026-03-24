@@ -371,9 +371,9 @@ test('rejects invalid voucher signature', async () => {
         voucher: invalidVoucher,
     });
 
-    await expect(
-        method.verify({ credential, request: buildChallengeRequest() }),
-    ).rejects.toThrow(/Invalid voucher signature/);
+    await expect(method.verify({ credential, request: buildChallengeRequest() })).rejects.toThrow(
+        /Invalid voucher signature/,
+    );
 });
 
 test('rejects voucher signed by unauthorized signer', async () => {
@@ -684,11 +684,11 @@ async function buildVoucherCredential(options: VoucherCredentialOptions): Promis
 
 async function buildCloseCredential(options: CloseCredentialOptions): Promise<any> {
     const voucher = options.cumulativeAmount
-        ? options.voucher ??
+        ? (options.voucher ??
           (await buildSignedVoucher({
               channelId: options.channelId,
               cumulativeAmount: options.cumulativeAmount,
-          }))
+          })))
         : options.voucher;
 
     return {

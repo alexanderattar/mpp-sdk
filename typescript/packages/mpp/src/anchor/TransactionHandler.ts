@@ -23,11 +23,7 @@ export function createSessionTransactionHandler(params: {
 } {
     const { channelProgram, rpcUrl, signer } = params;
 
-    async function processTransaction(
-        channelId: string,
-        clientTxBase64: string,
-        label: string,
-    ): Promise<string> {
+    async function processTransaction(channelId: string, clientTxBase64: string, label: string): Promise<string> {
         let txToSend = clientTxBase64;
 
         if (signer) {
@@ -53,23 +49,19 @@ export function createSessionTransactionHandler(params: {
 
     return {
         async handleOpen(channelId, transaction, _deposit) {
-            return processTransaction(channelId, transaction, 'Open');
+            return await processTransaction(channelId, transaction, 'Open');
         },
         async handleTopUp(channelId, transaction, _amount) {
-            return processTransaction(channelId, transaction, 'TopUp');
+            return await processTransaction(channelId, transaction, 'TopUp');
         },
     };
 }
 
 function verifyProgramInvoked(tx: ParsedTransaction, channelProgram: string, label: string): void {
     const instructions = tx.transaction.message.instructions;
-    const invokesProgram = instructions.some(
-        (ix: { programId?: string }) => ix.programId === channelProgram,
-    );
+    const invokesProgram = instructions.some((ix: { programId?: string }) => ix.programId === channelProgram);
     if (!invokesProgram) {
-        throw new Error(
-            `${label} transaction does not invoke the expected channel program ${channelProgram}`,
-        );
+        throw new Error(`${label} transaction does not invoke the expected channel program ${channelProgram}`);
     }
 }
 

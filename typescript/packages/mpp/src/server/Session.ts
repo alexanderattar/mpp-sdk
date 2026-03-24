@@ -1,6 +1,5 @@
 import { Method, Receipt, Store } from 'mppx';
 
-import { DEFAULT_RPC_URLS } from '../constants.js';
 import * as Methods from '../Methods.js';
 import * as ChannelStore from '../session/ChannelStore.js';
 import type {
@@ -17,8 +16,8 @@ type SessionRequest = {
     description?: string;
     externalId?: string;
     methodDetails: {
-        channelProgram: string;
         channelId?: string;
+        channelProgram: string;
         decimals?: number;
         feePayer?: boolean;
         feePayerKey?: string;
@@ -75,7 +74,6 @@ export function session(parameters: session.Parameters) {
                 ...request,
                 amount: parameters.amount,
                 currency,
-                recipient,
                 methodDetails: {
                     channelProgram,
                     ...(parameters.decimals !== undefined ? { decimals: parameters.decimals } : {}),
@@ -87,6 +85,7 @@ export function session(parameters: session.Parameters) {
                     network,
                     ...(parameters.ttlSeconds !== undefined ? { ttlSeconds: parameters.ttlSeconds } : {}),
                 },
+                recipient,
                 ...(parameters.suggestedDeposit ? { suggestedDeposit: parameters.suggestedDeposit } : {}),
                 ...(parameters.unitType ? { unitType: parameters.unitType } : {}),
             };
@@ -178,8 +177,8 @@ async function handleOpen(
         decimals: parameters.decimals ?? 9,
         escrowedAmount: depositAmount.toString(),
         finalized: false,
-        payer: payload.payer,
         payee: parameters.recipient,
+        payer: payload.payer,
         settledOnChain: '0',
         spentAmount: '0',
         status: 'open',
@@ -359,10 +358,7 @@ async function handleClose(
             throw new Error('Voucher channelId mismatch');
         }
 
-        const cumulativeAmount = parseNonNegativeAmount(
-            voucher.voucher.cumulativeAmount,
-            'voucher.cumulativeAmount',
-        );
+        const cumulativeAmount = parseNonNegativeAmount(voucher.voucher.cumulativeAmount, 'voucher.cumulativeAmount');
         const escrowedAmount = parseNonNegativeAmount(channel.escrowedAmount, 'channel.escrowedAmount');
 
         if (cumulativeAmount > escrowedAmount) {
@@ -376,10 +372,7 @@ async function handleClose(
                 throw new Error(`Channel already closed: ${payload.channelId}`);
             }
 
-            const currentAccepted = parseNonNegativeAmount(
-                current.acceptedCumulative,
-                'channel.acceptedCumulative',
-            );
+            const currentAccepted = parseNonNegativeAmount(current.acceptedCumulative, 'channel.acceptedCumulative');
 
             return {
                 ...current,
@@ -402,12 +395,7 @@ async function handleClose(
         });
     }
 
-    return toSessionReceipt(
-        payload.channelId,
-        channel.acceptedCumulative,
-        channel.spentAmount,
-        challengeId,
-    );
+    return toSessionReceipt(payload.channelId, channel.acceptedCumulative, channel.spentAmount, challengeId);
 }
 
 function assertSessionParameters(parameters: session.Parameters) {

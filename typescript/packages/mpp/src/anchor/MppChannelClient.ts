@@ -1,16 +1,7 @@
-import {
-    type Address,
-    address,
-    getProgramDerivedAddress,
-    type Instruction,
-} from '@solana/kit';
+import { type Address, address, getProgramDerivedAddress, type Instruction } from '@solana/kit';
 import { findAssociatedTokenPda } from '@solana-program/token';
 
-import {
-    ASSOCIATED_TOKEN_PROGRAM,
-    SYSTEM_PROGRAM,
-    TOKEN_PROGRAM,
-} from '../constants.js';
+import { ASSOCIATED_TOKEN_PROGRAM, SYSTEM_PROGRAM, TOKEN_PROGRAM } from '../constants.js';
 import { createEd25519VerifyInstruction } from '../utils/ed25519.js';
 
 const CHANNEL_SEED = 'mpp-channel';
@@ -23,8 +14,6 @@ const DISCRIMINATOR_CLOSE = new Uint8Array([98, 165, 201, 177, 108, 65, 206, 96]
 const DISCRIMINATOR_TOP_UP = new Uint8Array([236, 225, 96, 9, 60, 106, 77, 208]);
 const DISCRIMINATOR_REQUEST_CLOSE = new Uint8Array([82, 168, 167, 86, 14, 15, 199, 180]);
 const DISCRIMINATOR_WITHDRAW = new Uint8Array([183, 18, 70, 156, 148, 109, 161, 34]);
-
-const textEncoder = new TextEncoder();
 
 function addressToBytes(addr: Address): Uint8Array {
     const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -83,27 +72,25 @@ export async function deriveVaultPda(
     mint: Address,
     tokenProgram: Address = address(TOKEN_PROGRAM),
 ): Promise<Address> {
-    const [vaultAddress] = await findAssociatedTokenPda(
-        { mint, owner: channelPda, tokenProgram },
-    );
+    const [vaultAddress] = await findAssociatedTokenPda({ mint, owner: channelPda, tokenProgram });
     return vaultAddress;
 }
 
 // ---- Instruction builders ----
 
 export function buildOpenInstruction(params: {
-    programId: Address;
-    payer: Address;
-    payee: Address;
-    mint: Address;
+    authorizedSigner: Address;
     channelPda: Address;
-    payerTokenAccount: Address;
-    vault: Address;
-    salt: bigint;
     deposit: bigint;
     gracePeriodSeconds: bigint;
-    authorizedSigner: Address;
+    mint: Address;
+    payee: Address;
+    payer: Address;
+    payerTokenAccount: Address;
+    programId: Address;
+    salt: bigint;
     tokenProgram?: Address;
+    vault: Address;
 }): Instruction {
     const tokenProgramAddr = params.tokenProgram ?? address(TOKEN_PROGRAM);
     const data = new Uint8Array(8 + 8 + 8 + 8 + 32);
@@ -114,33 +101,33 @@ export function buildOpenInstruction(params: {
     data.set(addressToBytes(params.authorizedSigner), 32);
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payer, role: 3 },             // signer + writable
-            { address: params.payee, role: 0 },              // readonly
-            { address: params.mint, role: 0 },               // readonly
-            { address: params.channelPda, role: 1 },         // writable
-            { address: params.payerTokenAccount, role: 1 },  // writable
-            { address: params.vault, role: 1 },              // writable
-            { address: tokenProgramAddr, role: 0 },          // readonly
+            { address: params.payer, role: 3 }, // signer + writable
+            { address: params.payee, role: 0 }, // readonly
+            { address: params.mint, role: 0 }, // readonly
+            { address: params.channelPda, role: 1 }, // writable
+            { address: params.payerTokenAccount, role: 1 }, // writable
+            { address: params.vault, role: 1 }, // writable
+            { address: tokenProgramAddr, role: 0 }, // readonly
             { address: address(ASSOCIATED_TOKEN_PROGRAM), role: 0 },
             { address: address(SYSTEM_PROGRAM), role: 0 },
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
 export function buildSettleInstruction(params: {
-    programId: Address;
-    payee: Address;
     channelPda: Address;
-    mint: Address;
-    vault: Address;
-    payeeTokenAccount: Address;
     cumulativeAmount: bigint;
-    voucherMessage: Uint8Array;
     ed25519InstructionIndex: number;
+    mint: Address;
+    payee: Address;
+    payeeTokenAccount: Address;
+    programId: Address;
     tokenProgram?: Address;
+    vault: Address;
+    voucherMessage: Uint8Array;
 }): Instruction {
     const tokenProgramAddr = params.tokenProgram ?? address(TOKEN_PROGRAM);
     const messageLen = params.voucherMessage.length;
@@ -152,32 +139,32 @@ export function buildSettleInstruction(params: {
     data[20 + messageLen] = params.ed25519InstructionIndex;
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payee, role: 2 },          // signer
-            { address: params.channelPda, role: 1 },     // writable
-            { address: params.mint, role: 0 },            // readonly
-            { address: params.vault, role: 1 },           // writable
+            { address: params.payee, role: 2 }, // signer
+            { address: params.channelPda, role: 1 }, // writable
+            { address: params.mint, role: 0 }, // readonly
+            { address: params.vault, role: 1 }, // writable
             { address: params.payeeTokenAccount, role: 1 }, // writable
-            { address: INSTRUCTIONS_SYSVAR, role: 0 },    // readonly
-            { address: tokenProgramAddr, role: 0 },       // readonly
+            { address: INSTRUCTIONS_SYSVAR, role: 0 }, // readonly
+            { address: tokenProgramAddr, role: 0 }, // readonly
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
 export function buildCloseInstruction(params: {
-    programId: Address;
-    payee: Address;
     channelPda: Address;
+    cumulativeAmount: bigint;
+    ed25519InstructionIndex: number;
     mint: Address;
-    vault: Address;
+    payee: Address;
     payeeTokenAccount: Address;
     payerTokenAccount: Address;
-    cumulativeAmount: bigint;
-    voucherMessage: Uint8Array;
-    ed25519InstructionIndex: number;
+    programId: Address;
     tokenProgram?: Address;
+    vault: Address;
+    voucherMessage: Uint8Array;
 }): Instruction {
     const tokenProgramAddr = params.tokenProgram ?? address(TOKEN_PROGRAM);
     const messageLen = params.voucherMessage.length;
@@ -189,30 +176,30 @@ export function buildCloseInstruction(params: {
     data[20 + messageLen] = params.ed25519InstructionIndex;
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payee, role: 2 },          // signer
-            { address: params.channelPda, role: 1 },     // writable
-            { address: params.mint, role: 0 },            // readonly
-            { address: params.vault, role: 1 },           // writable
+            { address: params.payee, role: 2 }, // signer
+            { address: params.channelPda, role: 1 }, // writable
+            { address: params.mint, role: 0 }, // readonly
+            { address: params.vault, role: 1 }, // writable
             { address: params.payeeTokenAccount, role: 1 }, // writable
             { address: params.payerTokenAccount, role: 1 }, // writable
-            { address: INSTRUCTIONS_SYSVAR, role: 0 },    // readonly
-            { address: tokenProgramAddr, role: 0 },       // readonly
+            { address: INSTRUCTIONS_SYSVAR, role: 0 }, // readonly
+            { address: tokenProgramAddr, role: 0 }, // readonly
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
 export function buildTopUpInstruction(params: {
-    programId: Address;
-    payer: Address;
+    amount: bigint;
     channelPda: Address;
     mint: Address;
-    vault: Address;
+    payer: Address;
     payerTokenAccount: Address;
-    amount: bigint;
+    programId: Address;
     tokenProgram?: Address;
+    vault: Address;
 }): Instruction {
     const tokenProgramAddr = params.tokenProgram ?? address(TOKEN_PROGRAM);
     const data = new Uint8Array(8 + 8);
@@ -220,61 +207,61 @@ export function buildTopUpInstruction(params: {
     writeU64LE(data, 8, params.amount);
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payer, role: 2 },          // signer
-            { address: params.channelPda, role: 1 },     // writable
-            { address: params.mint, role: 0 },            // readonly
-            { address: params.vault, role: 1 },           // writable
+            { address: params.payer, role: 2 }, // signer
+            { address: params.channelPda, role: 1 }, // writable
+            { address: params.mint, role: 0 }, // readonly
+            { address: params.vault, role: 1 }, // writable
             { address: params.payerTokenAccount, role: 1 }, // writable
-            { address: tokenProgramAddr, role: 0 },       // readonly
+            { address: tokenProgramAddr, role: 0 }, // readonly
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
 export function buildRequestCloseInstruction(params: {
-    programId: Address;
-    payer: Address;
     channelPda: Address;
+    payer: Address;
+    programId: Address;
 }): Instruction {
     const data = new Uint8Array(8);
     data.set(DISCRIMINATOR_REQUEST_CLOSE, 0);
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payer, role: 2 },      // signer
-            { address: params.channelPda, role: 1 },  // writable
+            { address: params.payer, role: 2 }, // signer
+            { address: params.channelPda, role: 1 }, // writable
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
 export function buildWithdrawInstruction(params: {
-    programId: Address;
-    payer: Address;
     channelPda: Address;
     mint: Address;
-    vault: Address;
+    payer: Address;
     payerTokenAccount: Address;
+    programId: Address;
     tokenProgram?: Address;
+    vault: Address;
 }): Instruction {
     const tokenProgramAddr = params.tokenProgram ?? address(TOKEN_PROGRAM);
     const data = new Uint8Array(8);
     data.set(DISCRIMINATOR_WITHDRAW, 0);
 
     return {
-        programAddress: params.programId,
         accounts: [
-            { address: params.payer, role: 2 },          // signer
-            { address: params.channelPda, role: 1 },     // writable
-            { address: params.mint, role: 0 },            // readonly
-            { address: params.vault, role: 1 },           // writable
+            { address: params.payer, role: 2 }, // signer
+            { address: params.channelPda, role: 1 }, // writable
+            { address: params.mint, role: 0 }, // readonly
+            { address: params.vault, role: 1 }, // writable
             { address: params.payerTokenAccount, role: 1 }, // writable
-            { address: tokenProgramAddr, role: 0 },       // readonly
+            { address: tokenProgramAddr, role: 0 }, // readonly
         ],
         data,
+        programAddress: params.programId,
     };
 }
 
@@ -287,23 +274,19 @@ export function buildWithdrawInstruction(params: {
  * followed by the settle instruction (index 1) that references it.
  */
 export function buildSettleInstructions(params: {
-    programId: Address;
-    payee: Address;
     channelPda: Address;
-    mint: Address;
-    vault: Address;
-    payeeTokenAccount: Address;
     cumulativeAmount: bigint;
-    voucherMessage: Uint8Array;
-    signerPublicKey: Uint8Array;
+    mint: Address;
+    payee: Address;
+    payeeTokenAccount: Address;
+    programId: Address;
     signature: Uint8Array;
+    signerPublicKey: Uint8Array;
     tokenProgram?: Address;
+    vault: Address;
+    voucherMessage: Uint8Array;
 }): Instruction[] {
-    const ed25519Ix = createEd25519VerifyInstruction(
-        params.signerPublicKey,
-        params.signature,
-        params.voucherMessage,
-    );
+    const ed25519Ix = createEd25519VerifyInstruction(params.signerPublicKey, params.signature, params.voucherMessage);
 
     const settleIx = buildSettleInstruction({
         ...params,
@@ -321,24 +304,20 @@ export function buildSettleInstructions(params: {
  * with an empty voucherMessage and no Ed25519 instruction.
  */
 export function buildCloseInstructions(params: {
-    programId: Address;
-    payee: Address;
     channelPda: Address;
+    cumulativeAmount: bigint;
     mint: Address;
-    vault: Address;
+    payee: Address;
     payeeTokenAccount: Address;
     payerTokenAccount: Address;
-    cumulativeAmount: bigint;
-    voucherMessage: Uint8Array;
-    signerPublicKey: Uint8Array;
+    programId: Address;
     signature: Uint8Array;
+    signerPublicKey: Uint8Array;
     tokenProgram?: Address;
+    vault: Address;
+    voucherMessage: Uint8Array;
 }): Instruction[] {
-    const ed25519Ix = createEd25519VerifyInstruction(
-        params.signerPublicKey,
-        params.signature,
-        params.voucherMessage,
-    );
+    const ed25519Ix = createEd25519VerifyInstruction(params.signerPublicKey, params.signature, params.voucherMessage);
 
     const closeIx = buildCloseInstruction({
         ...params,

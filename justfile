@@ -53,11 +53,11 @@ rs-lint:
 
 # ── Anchor ──
 
-# Build Anchor program
+# Build Anchor program (programs/mpp-channel)
 anchor-build:
-    anchor build
+    anchor build --no-idl
 
-# Test Anchor program (requires local validator)
+# Run Anchor localnet tests (starts solana-test-validator automatically)
 anchor-test:
     anchor test
 

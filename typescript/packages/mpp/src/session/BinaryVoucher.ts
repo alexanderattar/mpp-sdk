@@ -79,9 +79,7 @@ export function serializeBinaryVoucher(fields: BinaryVoucherFields): Uint8Array 
 
 export function deserializeBinaryVoucher(data: Uint8Array): BinaryVoucherFields {
     if (data.length !== BINARY_VOUCHER_SIZE) {
-        throw new Error(
-            `Invalid binary voucher length: expected ${BINARY_VOUCHER_SIZE}, got ${data.length}`,
-        );
+        throw new Error(`Invalid binary voucher length: expected ${BINARY_VOUCHER_SIZE}, got ${data.length}`);
     }
 
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);

@@ -8,8 +8,8 @@ type SessionChallengeRequest = {
     amount: string;
     currency: string;
     methodDetails: {
-        channelProgram: string;
         channelId?: string;
+        channelProgram: string;
         decimals?: number;
         feePayer?: boolean;
         feePayerKey?: string;
@@ -42,7 +42,7 @@ export const sessionContextSchema = z.object({
 export type SessionContext = z.infer<typeof sessionContextSchema>;
 
 export function session(parameters: session.Parameters) {
-    const { signer, authorizer, autoOpen = true, autoTopup = false, settleOnLimitHit = false, onProgress } = parameters;
+    const { authorizer, autoOpen = true, autoTopup = false, settleOnLimitHit = false, onProgress } = parameters;
 
     let activeChannel: ActiveChannel | null = null;
 
@@ -66,17 +66,19 @@ export function session(parameters: session.Parameters) {
             });
 
             if (context?.action === 'topUp') {
-                return await handleTopUpAction(challenge, context, authorizer, activeChannel, channelProgram, network, feePayerKey);
-            }
-
-            if (context?.action === 'close') {
-                const credential = await handleCloseAction(
+                return await handleTopUpAction(
                     challenge,
                     context,
                     authorizer,
                     activeChannel,
-                    onProgress,
+                    channelProgram,
+                    network,
+                    feePayerKey,
                 );
+            }
+
+            if (context?.action === 'close') {
+                const credential = await handleCloseAction(challenge, context, authorizer, activeChannel, onProgress);
 
                 activeChannel = null;
                 return credential;
@@ -493,11 +495,11 @@ export declare namespace session {
     };
 
     type ProgressEvent =
-        | { currency: string; network: string; recipient: string; type: 'challenge' }
         | { channelId: string; cumulativeAmount: string; type: 'voucher-accepted' }
         | { channelId: string; cumulativeAmount: string; type: 'voucher-submitting' }
         | { channelId: string; type: 'closed' }
         | { channelId: string; type: 'closing' }
         | { channelId: string; type: 'opened' }
-        | { channelId: string; type: 'opening' };
+        | { channelId: string; type: 'opening' }
+        | { currency: string; network: string; recipient: string; type: 'challenge' };
 }
